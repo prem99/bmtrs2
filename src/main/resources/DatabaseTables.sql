@@ -1,0 +1,111 @@
+CREATE TABLE IF NOT EXISTS Visitor (
+    Email VARCHAR(254) NOT NULL,
+    Password VARCHAR(30) NOT NULL,
+    CCV INT NOT NULL,
+    CCNum BIGINT NOT NULL,
+    ExpYear INT NOT NULL,
+    ExpMonth INT NOT NULL,
+    PRIMARY KEY (Email)
+);
+
+CREATE TABLE IF NOT EXISTS Administrator (
+    Email VARCHAR(254) NOT NULL,
+    Password VARCHAR(30) NOT NULL,
+    PRIMARY KEY (Email)
+);
+
+CREATE TABLE IF NOT EXISTS Museum (
+    Name VARCHAR(256) NOT NULL,
+    CEmail VARCHAR(254),
+    CurrentPrice DECIMAL(8,2) NOT NULL,
+    PRIMARY KEY (Name),
+    FOREIGN KEY (CEmail) REFERENCES Visitor(Email)
+        ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Exhibit (
+    Name VARCHAR(256) NOT NULL,
+    MName VARCHAR(256) NOT NULL,
+    Year INT NOT NULL,
+    URL VARCHAR(2048),
+    PRIMARY KEY (Name, MName),
+    FOREIGN KEY (MName) REFERENCES Museum(Name)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Ticket (
+    VEmail VARCHAR(254) NOT NULL,
+    MName VARCHAR(256) NOT NULL,
+    Timestamp TIMESTAMP NOT NULL,
+    CostAtPurchase DECIMAL(8,2) NOT NULL,
+    PRIMARY KEY (VEmail, MName),
+    FOREIGN KEY (VEmail) REFERENCES Visitor(Email)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (MName) REFERENCES Museum(Name)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Review (
+    VEmail VARCHAR(254) NOT NULL,
+    MName VARCHAR(256) NOT NULL,
+    Text VARCHAR(1024),
+    Score INT NOT NULL,
+    PRIMARY KEY (VEmail, MName),
+    FOREIGN KEY (VEmail) REFERENCES Visitor(Email)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (MName) REFERENCES Museum(Name)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Curator_Request (
+    VEmail VARCHAR(254) NOT NULL,
+    MName VARCHAR(256) NOT NULL,
+    Date DATE NOT NULL,
+    ApprovedFlag BOOLEAN,
+    PRIMARY KEY (VEmail, MName),
+    FOREIGN KEY (VEmail) REFERENCES Visitor(Email)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (MName) REFERENCES Museum(Name)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE OR REPLACE VIEW UserInfo AS
+    SELECT Email, Password
+    FROM ADMINISTRATOR UNION (SELECT Email, Password FROM VISITOR);
+
+CREATE TRIGGER Check_Administrator_For_Uniqueness_With_Visitor
+   BEFORE INSERT ON Administrator
+   FOR EACH ROW
+ EXECUTE PROCEDURE function ()
+ BEGIN
+   IF EXISTS (SELECT * FROM Visitor WHERE Email=NEW.Email)
+		THEN DELETE FROM Administrator WHERE Email IN (SELECT Email FROM Visitor);
+   END if;
+ END;
+
+CREATE TRIGGER Check_Visitor_For_Uniqueness_With_Admin
+   BEFORE INSERT ON Visitor
+   FOR EACH ROW
+ BEGIN
+   IF EXISTS (SELECT * FROM Administrator WHERE Email=NEW.Email)
+		THEN DELETE FROM Visitor WHERE Email IN (SELECT Email FROM Administrator);
+   END if;
+ END;
+
+CREATE TRIGGER Check_Ticket_For_Review
+   BEFORE INSERT ON Review
+   FOR EACH ROW
+ BEGIN
+   IF NOT EXISTS (SELECT * FROM TICKET WHERE VEmail=NEW.VEmail AND MName=NEW.MName)
+		THEN DELETE FROM Review WHERE VEmail=NEW.VEmail AND MName=NEW.MName;
+   END if;
+ END;
+
+CREATE TRIGGER Check_Single_Administrator
+   BEFORE INSERT ON Administrator
+   FOR EACH ROW
+ BEGIN
+   IF EXISTS (SELECT * FROM Administrator)
+		THEN DELETE FROM Administrator;
+   END if;
+ END;
