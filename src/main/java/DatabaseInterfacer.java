@@ -72,9 +72,34 @@ class DatabaseInterfacer {
         return rs;
     }
 
+    private ResultSet query(PreparedStatement sqlStatement) {
+        try {
+            rs = sqlStatement.executeQuery();
+        } catch (SQLException ex) {
+            // handle any errors
+            System.out.println("SQLException: " + ex.getMessage());
+            System.out.println("SQLState: " + ex.getSQLState());
+            System.out.println("VendorError: " + ex.getErrorCode());
+        }
+        return rs;
+    }
+
     boolean execute(String sqlStatement) {
         try {
             stmt.executeUpdate(sqlStatement);
+        } catch (SQLException ex) {
+            // handle any errors
+            System.out.println("SQLException: " + ex.getMessage());
+            System.out.println("SQLState: " + ex.getSQLState());
+            System.out.println("VendorError: " + ex.getErrorCode());
+            return false;
+        }
+        return true;
+    }
+
+    boolean execute(PreparedStatement sqlStatement) {
+        try {
+            sqlStatement.executeUpdate();
         } catch (SQLException ex) {
             // handle any errors
             System.out.println("SQLException: " + ex.getMessage());
@@ -301,6 +326,40 @@ class DatabaseInterfacer {
 
     boolean createUser (String email, String password, long ccNum, int ccv,
                         int expYear, int expMonth) {
+
+        email = email.trim();
+        ResultSet set = query(
+                "SELECT EXISTS " +
+                        "(SELECT * " +
+                        "FROM Visitor WHERE Email='" + email + "');");
+
+        try {
+            set.first();
+            if (set.getInt(1) > 0) return false;
+        } catch (SQLException e) {
+            System.out.println("Vacancy error " + e.getMessage());
+        }
+
+        try {
+            PreparedStatement statement = conn.prepareStatement("INSERT INTO Visitor " +
+                    "(email, password, ccv, ccnum, expyear, expmonth) VALUES(?,?,?,?,?,?);");
+            statement.setString(1, email);
+            statement.setString(2, password);
+            statement.setInt(3, ccv);
+            statement.setLong(4, ccNum);
+            statement.setInt(5, expYear);
+            statement.setInt(6, expMonth);
+            execute(statement);
+
+        } catch (SQLException e){
+            System.out.println("Error happened " + e.getMessage());
+        }
+        return true;
+    }
+
+    boolean createUserOld (String email, String password, long ccNum, int ccv,
+                        int expYear, int expMonth) {
+
         email = email.trim();
         ResultSet set = query(
                 "SELECT EXISTS " +
